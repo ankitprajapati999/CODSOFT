@@ -1,7 +1,11 @@
 [project]
 name = "todoapp"
 version = "0.1.0"
-description = "Add your description here"
+description = "To-Do List app that helps users add remove or update the to-do task and remember the tasks they forget often to do"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "customtkinter>=5.2.2",
+    "pillow>=12.1.0",
+    "pywinstyles>=1.8",
+]
