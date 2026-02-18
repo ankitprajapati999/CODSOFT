@@ -7,9 +7,10 @@
 import customtkinter as ctk
 import tkinter as tk
 from PIL import Image
+import Data
 
 class SideCheek(ctk.CTkFrame):
-    def __init__(self, master, on_select=None, **kwargs):
+    def __init__(self, master, DataStorage: Data.DictStore, on_select=None, **kwargs):
         super().__init__(master, fg_color="#161B22", **kwargs)
 
         self.on_select = on_select
@@ -19,6 +20,8 @@ class SideCheek(ctk.CTkFrame):
         self.grid_rowconfigure(0, weight=0)  # header
         self.grid_rowconfigure(1, weight=1)  # scrollable list
         self.grid_rowconfigure(2, weight=0)  # button
+
+        self.DataStorage = DataStorage
 
         # ================= HEADER =================
         header = ctk.CTkFrame(self, fg_color="transparent")
@@ -109,6 +112,8 @@ class SideCheek(ctk.CTkFrame):
             self.section_buttons.append(btn)
             self.section_count += 1
 
+            self.DataStorage.TaskInSection[name] = []
+
         self.new_list_btn = ctk.CTkButton(
             self,
             text="➕ New List",
@@ -154,7 +159,7 @@ class SideCheek(ctk.CTkFrame):
         )
         menu.add_command(
             label="Clear All",
-            command=lambda b=btn: self.remove_section(b)
+            command=lambda b=btn: self.DataStorage.TaskInSection[b.cget("text")].clear()
         )
         btn.bind("<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root))
 
@@ -163,6 +168,9 @@ class SideCheek(ctk.CTkFrame):
         # find the index
         index = self.section_buttons.index(btn)
 
+        # remove from the data
+        section_name = btn.cget("text")
+        self.DataStorage.TaskInSection.pop(section_name, None)
         # remove from UI
         btn.destroy()
 
@@ -170,39 +178,159 @@ class SideCheek(ctk.CTkFrame):
         del self.section_buttons[index]
         del self.sections[index]
         self.section_count -= 1
+        
 
         # reset active
         if self.activeButton == btn:
             self.activeButton = None
 
-        # re-grid remaining buttons to fix row order
         for i, b in enumerate(self.section_buttons):
             b.grid_configure(row=i)
 
         
 class Maincheek(ctk.CTkFrame):
-    def __init__(self, master, activeSection: ctk.CTkButton | None, **kwargs):
+    def __init__(self, master, DataStorage: Data.DictStore,  **kwargs):
         super().__init__(master, **kwargs, fg_color="#0D1117")
 
-        self.grid_rowconfigure(0, weight=0)
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_rowconfigure(2, weight=0)
- 
-        self.label = ctk.CTkLabel(self, text="No Section Opened", font=("Arial", 36))
-        self.label.grid(row=0, column=0, padx=(30, 9), sticky="w")
+        # GRID
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0)  # title
+        self.grid_rowconfigure(1, weight=1)  # list area
+        self.grid_rowconfigure(2, weight=0)  # input bar
 
-    def set_section(self, text):
+        self.DataStorage = DataStorage
+        self.activeSection = None
+
+        # ================= TITLE =================
+        self.title_frame = ctk.CTkFrame(self, fg_color="#222A35", height=64)
+        self.title_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=(8, 17))
+        self.title_frame.grid_propagate(False)
+        self.title_frame.grid_columnconfigure(0, weight=1)
+
+        self.label = ctk.CTkLabel(
+            self.title_frame,
+            text="No Section Opened",
+            font=("Segoe UI Variable", 28, "bold")
+        )
+        self.label.grid(row=0, column=0, padx=20, ipady=20, sticky="w")
+
+        # ================= LIST AREA =================
+        self.list_frame = ctk.CTkScrollableFrame(self, fg_color="#2E3948")
+        self.list_frame.grid(row=1, column=0, sticky="nsew", padx=20)
+        self.list_frame.grid_columnconfigure(0, weight=1)
+        self.list_frame.grid_rowconfigure(0, weight=1)
+
+        placeholder = "No tasks here, Honestus :("
+
+        lbl = ctk.CTkLabel(
+                self.list_frame,
+                text=placeholder,
+                text_color="#F6F8FA",
+                font=("Segoe UI Variable", 19)
+            )
+        lbl.grid(row=0, column=0, padx=50, pady=50, sticky="nsew")
+
+        # ================= INPUT BAR =================
+        self.input_frame = ctk.CTkFrame(
+            self,
+            fg_color="#2A3442",
+            height=82,
+        )
+        self.input_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=(17, 8))
+        self.input_frame.grid_propagate(False)
+
+        self.input_frame.grid_columnconfigure(0, weight=1)
+        self.input_frame.grid_columnconfigure(1, weight=0)
+
+        # Entry – big, clean, confident
+        self.entry = ctk.CTkEntry(
+            self.input_frame,
+            height=52,
+            corner_radius=6,
+            font=("Segoe UI Variable", 17),
+            placeholder_text="Add a new task…",
+            fg_color="#0F1720",
+            border_color="#3B4656",
+            border_width=1,
+            text_color="#E6EDF3",
+            placeholder_text_color="#8B949E",
+        )        
+        self.entry.bind("<Return>", self.add_task)
+        self.entry.grid(
+            row=0,
+            column=0,
+            padx=(18, 10),
+            pady=14,
+            sticky="ew"
+        )
+
+        # Button – authoritative, not playfu
+        self.add_btn = ctk.CTkButton(
+            self.input_frame,
+            text="Add Task",
+            height=52,
+            width=140,
+            corner_radius=14,
+            font=("Segoe UI Variable", 16, "bold"),
+            fg_color="#3A5FFF",
+            hover_color="#2F4DE0",
+            text_color="white",
+            command=self.add_task
+        )
+        self.add_btn.grid(
+            row=0,
+            column=1,
+            padx=(0, 18),
+            pady=14
+        )
+
+    def load_tasks(self):
+        for w in self.list_frame.winfo_children():
+            w.destroy()
+
+        tasks = self.DataStorage.Fetch(str(self.activeSection)) or []
+
+        if not tasks:
+            ctk.CTkLabel(
+                self.list_frame,
+                text="No tasks here, Honestus :(",
+                font=("Segoe UI Variable", 19),
+                text_color="#F6F8FA"
+            ).grid(padx=50, pady=50)
+            return
+
+        for i, task in enumerate(tasks):
+            ctk.CTkLabel(
+                self.list_frame,
+                text=task,
+                font=("Segoe UI Variable", 19),
+                text_color="#F6F8FA"
+            ).grid(row=i, column=0, pady=8, sticky="w")
+            
+    def add_task(self, event=None):
+
+        task = self.entry.get().strip()
+
+        if not task or not self.activeSection:
+            return
+
+        self.DataStorage.Push(self.activeSection, [task])
+        self.entry.delete(0, "end")
+        self.load_tasks()
+
+    def set_section(self, text:str):
+        self.activeSection = text
         self.label.configure(text=text)
+        self.load_tasks()
 
-
-
+    
 class App(ctk.CTk):
     def __init__(self):
         super().__init__(fg_color="#0D1117")
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         self.geometry("900x550")
-        # self.minsize(900, 550) 
+        # self.minsize(900, 550) - Not Needed as this is not fucking working with the tiling Window Manager
         self.title("TO-DO")
 
         #Layout Baddie - MC ketlo time khai gyuuu
@@ -212,16 +340,18 @@ class App(ctk.CTk):
         # Main area = flexible
         self.grid_columnconfigure(1, weight=1)
 
+        self.DataStorage = Data.DictStore()
 
-        self.SideBar = SideCheek(master=self, on_select=self.update_main)
-        self.SideBar.grid(row=0, column=0, padx=(20, 10), pady=19, sticky="nsew")
+        self.SideBar = SideCheek(master=self,  DataStorage=self.DataStorage, on_select=self.update_main)
+        self.SideBar.grid(row=0, column=0, padx=(20, 2), pady=22, sticky="nsew")
         self.SideBar.grid_propagate(False)
 
+        # Trash will remove it later ,activeSection=self.SideBar.activeButton
 
-        self.Main = Maincheek(master=self, activeSection=self.SideBar.activeButton)
-        self.Main.grid(row=0, column=1, padx=6, pady=16, sticky="nsew")
+        self.Main = Maincheek(master=self, DataStorage=self.DataStorage)
+        self.Main.grid(row=0, column=1, padx=(3, 20), pady=16, sticky="nsew")
 
-    def update_main(self, btn):
+    def update_main(self, btn:ctk.CTkButton):
         self.Main.set_section(btn.cget("text")) 
 
 
