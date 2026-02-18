@@ -113,6 +113,8 @@ class SideCheek(ctk.CTkFrame):
             self.section_count += 1
 
             self.DataStorage.TaskInSection[name] = []
+            self.DataStorage.save()
+
 
         self.new_list_btn = ctk.CTkButton(
             self,
@@ -186,6 +188,9 @@ class SideCheek(ctk.CTkFrame):
 
         for i, b in enumerate(self.section_buttons):
             b.grid_configure(row=i)
+
+        self.DataStorage.save()
+
 
         
 class Maincheek(ctk.CTkFrame):
@@ -285,28 +290,64 @@ class Maincheek(ctk.CTkFrame):
         )
 
     def load_tasks(self):
+
         for w in self.list_frame.winfo_children():
             w.destroy()
 
         tasks = self.DataStorage.Fetch(str(self.activeSection)) or []
 
-        if not tasks:
-            ctk.CTkLabel(
-                self.list_frame,
-                text="No tasks here, Honestus :(",
-                font=("Segoe UI Variable", 19),
-                text_color="#F6F8FA"
-            ).grid(padx=50, pady=50)
-            return
-
         for i, task in enumerate(tasks):
-            ctk.CTkLabel(
-                self.list_frame,
-                text=task,
+
+            row_frame = ctk.CTkFrame(self.list_frame, fg_color="transparent")
+            row_frame.grid(row=i, column=0, pady=6, sticky="ew")
+            row_frame.grid_columnconfigure(1, weight=1)
+
+            # Checkbox
+            check = ctk.CTkCheckBox(
+                row_frame,
+                text="",
+                width=24,
+                command=lambda idx=i: self.toggle_task(idx)
+            )
+
+            if task["done"]:
+                check.select()
+
+            check.grid(row=0, column=0, padx=(0, 10))
+
+            # Task Label
+            text_color = "#8B949E" if task["done"] else "#F6F8FA"
+
+            lbl = ctk.CTkLabel(
+                row_frame,
+                text=task["text"],
                 font=("Segoe UI Variable", 19),
-                text_color="#F6F8FA"
-            ).grid(row=i, column=0, pady=8, sticky="w")
+                text_color=text_color
+            )
+            lbl.grid(row=0, column=1, sticky="w")
+
+            # Delete Button
+            del_btn = ctk.CTkButton(
+                row_frame,
+                text="✕",
+                width=32,
+                height=28,
+                fg_color="#3A2B2B",
+                hover_color="#4A1F1F",
+                command=lambda idx=i: self.delete_task(idx)
+            )
+            del_btn.grid(row=0, column=2, padx=(10, 0))
+
             
+    def toggle_task(self, index):
+        self.DataStorage.ToggleDone(str(self.activeSection), index)
+        self.load_tasks()
+
+    def delete_task(self, index):
+        self.DataStorage.Delete(str(self.activeSection), index)
+        self.load_tasks()
+
+
     def add_task(self, event=None):
 
         task = self.entry.get().strip()

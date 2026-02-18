@@ -1,20 +1,47 @@
+import json
+import os
 
 class DictStore:
-    def __init__(self) -> None:
-        self.TaskInSection = {
-            " 📖 Today" : ["Collge buddy"],
-            " ☆ Important" : [],
-            " 📅 Planned" : [],
-            " 🗑 Trash" : []
-        }
+    def __init__(self, filename="tasks.json") -> None:
+        self.filename = filename
 
-    def Push(self, section:str, tasks:list[str]):
+        if os.path.exists(self.filename):
+            with open(self.filename, "r") as f:
+                self.TaskInSection = json.load(f)
+        else:
+            self.TaskInSection = {
+                " 📖 Today": [],
+                " ☆ Important": [],
+                " 📅 Planned": [],
+                " 🗑 Trash": []
+            }
+            self.save()
+
+    def save(self):
+        with open(self.filename, "w") as f:
+            json.dump(self.TaskInSection, f, indent=4)
+
+    def Push(self, section: str, tasks: list[str]):
         for task in tasks:
-            self.TaskInSection[section].append(task)
-            print(self.TaskInSection[section])
+            self.TaskInSection[section].append({
+                "text": task,
+                "done": False
+            })
+        self.save()
 
-    def Fetch(self, section:str) -> list:
-        return self.TaskInSection[section]
+    def Fetch(self, section: str):
+        return self.TaskInSection.get(section, [])
+
+    def Delete(self, section: str, index: int):
+        if 0 <= index < len(self.TaskInSection[section]):
+            del self.TaskInSection[section][index]
+            self.save()
+
+    def ToggleDone(self, section: str, index: int):
+        task = self.TaskInSection[section][index]
+        task["done"] = not task["done"]
+        self.save()
+
     
 
 if __name__ == "__main__":
