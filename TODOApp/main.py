@@ -316,7 +316,7 @@ class Maincheek(ctk.CTkFrame):
             check.grid(row=0, column=0, padx=(0, 10))
 
             # Task Label
-            text_color = "#8B949E" if task["done"] else "#F6F8FA"
+            text_color = "#7D838B" if task["done"] else "#F3F1F1"
 
             lbl = ctk.CTkLabel(
                 row_frame,
@@ -332,7 +332,7 @@ class Maincheek(ctk.CTkFrame):
                 text="✕",
                 width=32,
                 height=28,
-                fg_color="#3A2B2B",
+                fg_color="#763A3A",
                 hover_color="#4A1F1F",
                 command=lambda idx=i: self.delete_task(idx)
             )
